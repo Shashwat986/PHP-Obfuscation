@@ -7,8 +7,66 @@ import os
 import random
 import re
 import sys
+import math
 
-def obfuscateLine(line, header=""):
+def obfuscateBeaut(line, header=""):
+	oline = ""
+	
+	chars = list(set(line))
+	random.shuffle(chars)
+	
+	mapping = dict(zip(chars,range(len(chars))))
+	
+	ctrB = 1
+	ctrS = 0
+	for key in mapping.keys():
+		kval = key
+		if kval in ["'","\\"]:
+			# Escape the ' and \ symbols
+			kval = "\\"+kval
+		oline += "${}_{}='{}';".format(header, mapping[key], kval)
+		ctrS += 1
+		if ctrS == ctrB:
+			oline += "\n"
+			ctrB += 1
+			ctrS = 0
+	
+	if ctrS != 0:
+		usedVars = len(mapping)
+		while ctrS < ctrB:
+			oline += "${}_{}='{}';".format(header, usedVars, chr(random.randint(48,122)))
+			usedVars += 1
+			ctrS += 1
+		
+		oline += "\n"
+	try:
+		ll = len(oline.split('\n')[-2])
+	except IndexError:
+		ll = len(oline)
+	
+	ll += 8
+	oline += 'eval("';
+	ctrS = 9
+	for char in line:
+		oline += "${}_{}".format(header, mapping[char])
+		ctrS +=len("${}_{}".format(header, mapping[char]))
+		if ctrS >= ll:
+			oline += '" .'
+			oline += '\n  "'
+			ctrS = 5
+			ll += 8
+	
+	oline += '");'
+	ctrS += 3
+	
+	if ctrS < ll:
+		oline += '/*' + '*'*(ll-4-ctrS) + '*/'
+	
+	oline += "\n"
+	
+	return oline
+
+def obfuscateNormal(line, header=""):
 	oline = ""
 	
 	chars = list(set(line))
@@ -19,6 +77,7 @@ def obfuscateLine(line, header=""):
 	for key in mapping.keys():
 		kval = key
 		if kval in ["'","\\"]:
+			# Escape the ' and \ symbols
 			kval = "\\"+kval
 		oline += "${}_{}='{}';".format(header, mapping[key], kval)
 	
@@ -31,7 +90,7 @@ def obfuscateLine(line, header=""):
 	oline += '");\n'
 	return oline
 
-def obfuscate(fileName, outFileName = None):
+def obfuscate(fileName, outFileName = None, obfuscateLine = obfuscateNormal):
 	fp = open(fileName,'r')
 	lines = fp.readlines()
 	
@@ -80,22 +139,27 @@ def obfuscate(fileName, outFileName = None):
 
 if __name__ == "__main__":
 	if len(sys.argv) < 2:
-		print '''PHP Obfuscator
+		print '''PHP Obfuscator v0.2
 		Usage 1:
 			>>> import obfuscate
 			>>> obfuscate.obfuscate('input.php','output.php')
 			>>> obfuscate.obfuscate('input.php')
-			>>> obfuscate.obfuscateLine('echo "hello world";'
+			>>> obfuscate.obfuscateNormal('echo "hello world";')
 		
 		Usage 2:
 			$ python obfuscate.py input.php
 			$ python obfuscate.py input.php output.php
+			$ python obfuscate.py input.php output.php AThirdParameterMeansBeautify
 		'''
 	elif len(sys.argv) < 3:
 		ifile = sys.argv[1]
 		obfuscate(ifile)
-	else:
+	elif len(sys.argv) < 4:
 		ifile = sys.argv[1]
 		ofile = sys.argv[2]
 		obfuscate(ifile, ofile)
+	else:
+		ifile = sys.argv[1]
+		ofile = sys.argv[2]
+		obfuscate(ifile, ofile, obfuscateBeaut)
 	
